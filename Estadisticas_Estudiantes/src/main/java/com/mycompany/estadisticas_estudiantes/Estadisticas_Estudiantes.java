@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.security.PrivilegedExceptionAction;
 import java.text.NumberFormat;
 import java.text.ParseException;
+import java.util.ArrayList;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.LongWritable;
@@ -30,19 +31,36 @@ public class Estadisticas_Estudiantes {
     //Estadisticas por mes de lo mismo, el mes que ha habdio mas y que ha habido menos, y la media total
     //Estadisticas --> media
     
+    private static class ReductorColegios extends Reducer<Text, Text, Text, Text> { 
+        private ArrayList<String> listaColegios = new ArrayList<>();
+        
+        @Override
+        protected ArrayList<String> reduce(Text key, Iterable<Text> values, Context context) {
+
+            for (Text val : values) {
+                String[] str = val.toString().split(",", -1);
+                String colegio = str[0];
+                if (!listaColegios.contains(colegio)){
+                    listaColegios.add(colegio);
+                }
+            }
+            return listaColegios;
+        }
+    }
+    
     private static class MapClass extends Mapper<LongWritable, Text, Text, Text> {
 
         @Override
         protected void map(LongWritable key, Text value, Mapper.Context context) {
             try {
-                String[] str = value.toString().split("\t", -1);
-                String genero = str[3];
-                System.out.println("Clave del map: " + genero);
+                String[] str = value.toString().split(",", -1);
+                String idColegio = str[0];
+                System.out.println("Clave del map: " + idColegio);
                 System.out.println("Valor del map: " + value);
 
                 //Descartar la primera linea
-                if (!("Género".equals(genero))) {
-                    context.write(new Text(genero), new Text(value)); //No se puede poner string geenro en la key proque el tipo escribible en java es Text. Siempres ahi se pone Text
+                if (!("School DBN".equals(idColegio))) {
+                    context.write(new Text(idColegio), new Text(value)); //No se puede poner string geenro en la key proque el tipo escribible en java es Text. Siempres ahi se pone Text
                 }
 
             } catch (IOException | InterruptedException e) {
@@ -56,49 +74,50 @@ public class Estadisticas_Estudiantes {
     
     private static class ReducerClass extends Reducer<Text, Text, Text, Text> { //le llegan el geenro y la linea y va a sacar el genero y el salario 
     //private static class ReducerClass extends Reducer<Text, Text, Text, IntWritable>    
-        private int max = -1;
-        private String nombre = null;
+        private int dias = 0;
+        private long sumatorioRatio = 0L; //para la media
+        private String idColegio = null;
 
         @Override
-        protected void reduce(Text key, Iterable<Text> values, Reducer.Context context) {
+        protected void reduce(Text key, Iterable<Text> values, Context context) {
             try {
-                max = -1; //cada vez que entramos inicializamos el valor
 
                 for (Text val : values) {
-                    String[] str = val.toString().split("\t", -1);
-                    int number = NumberFormat.getNumberInstance(java.util.Locale.US).parse(str[4]).intValue(); //el campo 4 es el dinero
-                    if (number > max) {
-                        max = number;
-                        nombre = str[1];
-                    }
+                    String[] str = val.toString().split(",", -1);
+                    int alumnosTotal = Integer.parseInt(str[2]); 
+                    int alumnosPresentes = Integer.parseInt(str[3]);
+                    int alumnosAusentes = Integer.parseInt(str[4]);                    
+                    double ratioAsistencia = alumnosPresentes/alumnosTotal;
+                    
+                    //Actualizamos estadisticas
+                    dias++;
+                    sumatorioRatio+=ratioAsistencia;
+                    
                 }
-                context.write(new Text(key), new Text(nombre + "\t" + max));//new IntWritable(max)
+                long mediaColegio = sumatorioRatio / dias;
+                context.write(new Text(key), new Text(idColegio + "\t" + mediaColegio));
 
 
-            } catch (IOException | InterruptedException | ParseException e) {
+            } catch (IOException | InterruptedException e) {
                 System.err.println("Excepcion: ");
                 System.err.println("Mensaje: " + e.getMessage());
                 e.printStackTrace(System.err);
             }
         }
-
     }
     
-    private static class PartitionerClass extends Partitioner<Text, Text> {
-
+    private static class PartitionerClass(ArrayList<String> listaColegios) extends Partitioner<Text, Text> {
+        
         @Override
         public int getPartition(Text key, Text value, int i) {
-            String[] str = value.toString().split("\t",-1);
-            int edad = Integer.parseInt(str[2]);
+            String[] str = value.toString().split(",",-1);
+            int colegio = Integer.parseInt(str[2]);
+            int numColegios = listaColegios.size();
             
-            if(edad <= 20){
-                return 0;
-            }
-            else if (edad > 20 && edad <=30){
-                return 1;
-            } 
-            else{
-                return 2;
+            for(int i=0; i<numColegios; i++){
+               if(colegio.equals(listaColegios.get(i))){
+                   return i;
+               }
             }
         }
         
