@@ -137,7 +137,9 @@ public class Estadisticas_Estudiantes {
                     Job job = Job.getInstance(conf, "CustomMinMaxTuple_A_83029");
                     job.setJarByClass(Estadisticas_Estudiantes.class);
                     job.setMapperClass(MapClass.class);
+                    job.setPartitionerClass(PartitionerClass.class);
                     job.setReducerClass(Reducer.class);
+                    job.setNumReduceTasks(3);
                     job.setOutputKeyClass(Text.class);
                     job.setOutputValueClass(Text.class);
 
