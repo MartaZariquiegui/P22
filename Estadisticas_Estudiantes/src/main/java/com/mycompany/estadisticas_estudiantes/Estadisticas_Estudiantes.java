@@ -26,17 +26,15 @@ import org.apache.hadoop.security.UserGroupInformation;
  * @author alumno
  */
 public class Estadisticas_Estudiantes {
-    
+    public static ArrayList<String> listaColegios = new ArrayList<>();
     //Estadisticas por colegio de ratio de asistencias y ratio de expulsados, colegio que ha habido mas asitencias y menos
     //Estadisticas por mes de lo mismo, el mes que ha habdio mas y que ha habido menos, y la media total
     //Estadisticas --> media
     
     private static class ReductorColegios extends Reducer<Text, Text, Text, Text> { 
-        private ArrayList<String> listaColegios = new ArrayList<>();
         
         @Override
-        protected ArrayList<String> reduce(Text key, Iterable<Text> values, Context context) {
-
+        protected void reduce(Text key, Iterable<Text> values, Context context) throws IOException, InterruptedException {
             for (Text val : values) {
                 String[] str = val.toString().split(",", -1);
                 String colegio = str[0];
@@ -44,19 +42,20 @@ public class Estadisticas_Estudiantes {
                     listaColegios.add(colegio);
                 }
             }
-            return listaColegios;
+            System.out.println(listaColegios.size());       
         }
+        
     }
     
     private static class MapClass extends Mapper<LongWritable, Text, Text, Text> {
 
         @Override
-        protected void map(LongWritable key, Text value, Mapper.Context context) {
+        protected void map(LongWritable key, Text value, Context context) {
             try {
                 String[] str = value.toString().split(",", -1);
                 String idColegio = str[0];
-                System.out.println("Clave del map: " + idColegio);
-                System.out.println("Valor del map: " + value);
+                //System.out.println("Clave del map: " + idColegio);
+                //System.out.println("Valor del map: " + value);
 
                 //Descartar la primera linea
                 if (!("School DBN".equals(idColegio))) {
@@ -87,7 +86,7 @@ public class Estadisticas_Estudiantes {
                     int alumnosTotal = Integer.parseInt(str[2]); 
                     int alumnosPresentes = Integer.parseInt(str[3]);
                     int alumnosAusentes = Integer.parseInt(str[4]);                    
-                    double ratioAsistencia = alumnosPresentes/alumnosTotal;
+                    double ratioAsistencia = (double) alumnosPresentes/alumnosTotal;
                     
                     //Actualizamos estadisticas
                     dias++;
@@ -106,19 +105,20 @@ public class Estadisticas_Estudiantes {
         }
     }
     
-    private static class PartitionerClass(ArrayList<String> listaColegios) extends Partitioner<Text, Text> {
+    private static class PartitionerClass  extends Partitioner<Text, Text> {        
         
         @Override
         public int getPartition(Text key, Text value, int i) {
-            String[] str = value.toString().split(",",-1);
-            int colegio = Integer.parseInt(str[2]);
+            //String[] str = value.toString().split(",",-1);
+            //String colegio = str[0];
             int numColegios = listaColegios.size();
             
-            for(int i=0; i<numColegios; i++){
-               if(colegio.equals(listaColegios.get(i))){
-                   return i;
-               }
+            for(int j=0; i<numColegios; j++){
+               //if(colegio.equals(listaColegios.get(i))){
+                    return j;
+               //}
             }
+            return -1;
         }
         
     }
@@ -134,19 +134,29 @@ public class Estadisticas_Estudiantes {
                 public Void run() throws Exception {
                     Configuration conf = new Configuration();
                     conf.set("fs.defaultFS", "hdfs://192.168.10.1:9000");
-                    Job job = Job.getInstance(conf, "CustomMinMaxTuple_A_83029");
+                    Job job = Job.getInstance(conf, "Estadisticas_Estudiantes_A_83029");
+                    
+                    job.setReducerClass(ReductorColegios.class);
+                    
+                    //ReductorColegios reductorColegios = new ReductorColegios();
+                    //reductorColegios.meterColegios(key, values, context);
+                    System.out.println(listaColegios.size());
+                    
+                    //PartitionerClass partitioner = new PartitionerClass();
+                    //partitioner.setListaColegios(listaColegios);
+
                     job.setJarByClass(Estadisticas_Estudiantes.class);
                     job.setMapperClass(MapClass.class);
                     job.setPartitionerClass(PartitionerClass.class);
-                    job.setReducerClass(Reducer.class);
-                    job.setNumReduceTasks(3);
+                    job.setReducerClass(ReducerClass.class);
+                    job.setNumReduceTasks(listaColegios.size());
                     job.setOutputKeyClass(Text.class);
                     job.setOutputValueClass(Text.class);
 
                     FileInputFormat.addInputPath(job,
-                            new Path("/PCD2024/a_83029/particionadoHadoop"));
+                            new Path("/PCD2024/a_83029/P22"));
                     FileOutputFormat.setOutputPath(job,
-                            new Path("/PCD2024/a_83029/mapreduce_particionadoHaoop"));
+                            new Path("/PCD2024/a_83029/mapreduce_EstadisticasEstudiantes_4"));
 
                     boolean finalizado = job.waitForCompletion(true);
                     System.out.println("Finalizado: " + finalizado);
