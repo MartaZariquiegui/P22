@@ -128,24 +128,23 @@ public class Estadisticas_Estudiantes {
     public static void main(String[] args) {
         
         UserGroupInformation ugi
-                = UserGroupInformation.createRemoteUser("a_83029");
+                = UserGroupInformation.createRemoteUser("a_83059");
         try{
             ugi.doAs(new PrivilegedExceptionAction<Void>() {
                 public Void run() throws Exception {
                     Configuration conf = new Configuration();
                     conf.set("fs.defaultFS", "hdfs://192.168.10.1:9000");
-                    Job job = Job.getInstance(conf, "Estadisticas_Estudiantes_A_83029");
-                    
+                    Job job = Job.getInstance(conf, "Estadisticas_Estudiantes_A_83059");
+                    job.setJarByClass(Estadisticas_Estudiantes.class);
                     job.setReducerClass(ReductorColegios.class);
                     
                     //ReductorColegios reductorColegios = new ReductorColegios();
                     //reductorColegios.meterColegios(key, values, context);
-                    System.out.println(listaColegios.size());
                     
                     //PartitionerClass partitioner = new PartitionerClass();
                     //partitioner.setListaColegios(listaColegios);
 
-                    job.setJarByClass(Estadisticas_Estudiantes.class);
+                    //job.setJarByClass(Estadisticas_Estudiantes.class);
                     job.setMapperClass(MapClass.class);
                     job.setPartitionerClass(PartitionerClass.class);
                     job.setReducerClass(ReducerClass.class);
@@ -154,9 +153,9 @@ public class Estadisticas_Estudiantes {
                     job.setOutputValueClass(Text.class);
 
                     FileInputFormat.addInputPath(job,
-                            new Path("/PCD2024/a_83029/P22"));
+                            new Path("/PCD2024/a_83059/P22"));
                     FileOutputFormat.setOutputPath(job,
-                            new Path("/PCD2024/a_83029/mapreduce_EstadisticasEstudiantes_4"));
+                            new Path("/PCD2024/a_83059/mapreduce_EstadisticasEstudiantes"));
 
                     boolean finalizado = job.waitForCompletion(true);
                     System.out.println("Finalizado: " + finalizado);
